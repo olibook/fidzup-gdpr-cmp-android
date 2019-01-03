@@ -13,25 +13,24 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.util.Log;
 
-import com.fidzup.android.cmp.activity.ConsentActivity;
-import com.fidzup.android.cmp.activity.ConsentToolPreferencesActivity;
-import com.google.android.gms.ads.identifier.AdvertisingIdClient;
-import com.google.android.gms.common.GooglePlayServicesNotAvailableException;
-import com.google.android.gms.common.GooglePlayServicesRepairableException;
 import com.fidzup.android.cmp.Constants;
+import com.fidzup.android.cmp.activity.ConsentActivity;
 import com.fidzup.android.cmp.activity.ConsentToolActivity;
+import com.fidzup.android.cmp.activity.ConsentToolPreferencesActivity;
 import com.fidzup.android.cmp.consentstring.ConsentString;
+import com.fidzup.android.cmp.editor.EditorManager;
+import com.fidzup.android.cmp.editor.EditorManagerListener;
 import com.fidzup.android.cmp.model.ConsentToolConfiguration;
+import com.fidzup.android.cmp.model.Editor;
 import com.fidzup.android.cmp.model.Language;
 import com.fidzup.android.cmp.model.VendorList;
 import com.fidzup.android.cmp.vendorlist.VendorListManager;
 import com.fidzup.android.cmp.vendorlist.VendorListManagerListener;
-import com.fidzup.android.cmp.model.Editor;
-import com.fidzup.android.cmp.editor.EditorManager;
-import com.fidzup.android.cmp.editor.EditorManagerListener;
+import com.google.android.gms.ads.identifier.AdvertisingIdClient;
+import com.google.android.gms.common.GooglePlayServicesNotAvailableException;
+import com.google.android.gms.common.GooglePlayServicesRepairableException;
 
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.util.Date;
 
 /**
@@ -583,7 +582,11 @@ public class ConsentManager implements VendorListManagerListener,EditorManagerLi
 
         migrateConsentStringIfNeeded();
         migrateConsentStringForEditorIfNeeded();
-        ConsentString consentString = this.consentString == null ? ConsentString.consentStringWithFullConsent(0, language, lastEditor, lastVendorList) : this.consentString;
+        ConsentString consentString = this.consentString ;
+        if (consentString == null) {
+            consentString = ConsentString.consentStringWithFullConsent(0, language, lastEditor, lastVendorList);
+            consentString = ConsentString.consentStringByRemovingAllPurposeConsents(lastVendorList, lastEditor, consentString);
+        }
 
         Intent intent = ConsentActivity.getIntentForConsentActivity(context,
                 actcivityClass,
