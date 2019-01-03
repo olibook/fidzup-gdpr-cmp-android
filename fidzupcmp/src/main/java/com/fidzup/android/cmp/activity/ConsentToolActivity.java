@@ -2,17 +2,19 @@ package com.fidzup.android.cmp.activity;
 
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.graphics.PorterDuff;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AlertDialog;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
+import android.view.LayoutInflater;
 import android.view.View;
-import android.widget.Button;
+import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.fidzup.android.cmp.R;
-import com.fidzup.android.cmp.consentstring.ConsentString;
 import com.fidzup.android.cmp.manager.ConsentManager;
 import com.fidzup.android.cmp.model.ConsentToolConfiguration;
 
@@ -25,14 +27,17 @@ public class ConsentToolActivity extends ConsentActivity {
     static private final int PREFERENCES_REQUEST_CODE = 0;
     static private final int VENDOR_REQUEST_CODE = 1;
 
+    private RecyclerView recyclerView;
+    private Adapter adapter;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.consent_tool_activity_layout);
+        recyclerView = findViewById(R.id.consentToolRecyclerView);
 
-        ConsentToolConfiguration config = ConsentManager.getSharedInstance().getConsentToolConfiguration();
 
+        /*
         // Setup main logo
         ImageView mainLogoImageView = findViewById(R.id.fidzup_logo);
         mainLogoImageView.setImageResource(config.getHomeScreenLogoDrawableRes());
@@ -81,6 +86,13 @@ public class ConsentToolActivity extends ConsentActivity {
                 startActivityForResult(intent, PREFERENCES_REQUEST_CODE);
             }
         });
+
+        */
+
+        adapter = new Adapter(ConsentManager.getSharedInstance().getConsentToolConfiguration());
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        recyclerView.setAdapter(adapter);
+
     }
 
     @Override
@@ -125,5 +137,73 @@ public class ConsentToolActivity extends ConsentActivity {
                 getEditorFromIntent());
         intent.putExtra(VendorListActivity.EXTRA_READONLY, true);
         startActivityForResult(intent, VENDOR_REQUEST_CODE);
+    }
+
+    private static class Adapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
+        private static final int VIEW_TYPE_HEADER = 0;
+        private static final int VIEW_TYPE_PURPOSE = 1;
+        private static final int VIEW_TYPE_FOOTER = 2;
+        private final ConsentToolConfiguration config;
+
+        private Adapter(ConsentToolConfiguration config) {
+            super();
+            this.config = config;
+        }
+
+        @NonNull
+        @Override
+        public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            switch (viewType) {
+                case VIEW_TYPE_HEADER:
+                    View v = LayoutInflater.from(parent.getContext())
+                          .inflate(R.layout.header_cell, parent, false);
+                    return new HeaderViewHolder(v);
+                case VIEW_TYPE_FOOTER:
+                    throw new RuntimeException("not implemented");
+                case VIEW_TYPE_PURPOSE:
+                    throw new RuntimeException("not implemented");
+            }
+            throw new AssertionError(String.format("unexpected view type {}", viewType));
+        }
+
+        @Override
+        public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
+            if (HeaderViewHolder.class.isInstance(holder)) {
+                HeaderViewHolder vh = (HeaderViewHolder) holder;
+
+                vh.mainLogoImageView.setImageResource(config.getHomeScreenLogoDrawableRes());
+                vh.mainTextView.setText(config.getHomeScreenText());
+            }
+        }
+
+        @Override
+        public int getItemCount() {
+            return 1;
+        }
+
+        @Override
+        public int getItemViewType(int position) {
+            if (position == 0) {
+                return VIEW_TYPE_HEADER;
+            }
+            if (position == getItemCount() - 1) {
+                return VIEW_TYPE_FOOTER;
+            }
+            if (position > 0 && position < getItemCount() - 1) {
+                return VIEW_TYPE_PURPOSE;
+            }
+            throw new AssertionError(String.format("Unexpected position {}", position));
+        }
+    }
+
+    private static class HeaderViewHolder extends RecyclerView.ViewHolder {
+        private final TextView mainTextView;
+        private final ImageView mainLogoImageView;
+
+        private HeaderViewHolder(View itemView) {
+            super(itemView);
+            mainLogoImageView = itemView.findViewById(R.id.fidzup_logo);
+            mainTextView = itemView.findViewById(R.id.main_textview);
+        }
     }
 }
