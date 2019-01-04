@@ -2,21 +2,32 @@ package com.fidzup.android.cmp.activity;
 
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.graphics.PorterDuff;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.SwitchCompat;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.CompoundButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.fidzup.android.cmp.R;
+import com.fidzup.android.cmp.consentstring.ConsentString;
 import com.fidzup.android.cmp.manager.ConsentManager;
 import com.fidzup.android.cmp.model.ConsentToolConfiguration;
+import com.fidzup.android.cmp.model.Purpose;
+import com.fidzup.android.cmp.model.VendorList;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Consent tool activity.
@@ -29,67 +40,17 @@ public class ConsentToolActivity extends ConsentActivity {
 
     private RecyclerView recyclerView;
     private Adapter adapter;
-
+    private ConsentString consentString;
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.consent_tool_activity_layout);
         recyclerView = findViewById(R.id.consentToolRecyclerView);
 
-
-        /*
-        // Setup main logo
-        ImageView mainLogoImageView = findViewById(R.id.fidzup_logo);
-        mainLogoImageView.setImageResource(config.getHomeScreenLogoDrawableRes());
-
-        // Setup main text
-        TextView mainTextView = findViewById(R.id.main_textview);
-        mainTextView.setText(config.getHomeScreenText());
-
-        // Setup the accept and close button
-        Button closeButton = findViewById(R.id.close_button);
-        closeButton.setText(config.getHomeScreenCloseButtonTitle());
-        closeButton.getBackground().setColorFilter(getResources().getColor(R.color.actionButtonColor), PorterDuff.Mode.MULTIPLY);
-        closeButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                // Accept all new vendors or purposes.
-                ConsentManager.getSharedInstance().allowAllPurposes();
-                finish();
-            }
-        });
-
-        // Setup the refuse & close button
-        Button closeRefuseButton = findViewById(R.id.close_refuse_button);
-        closeRefuseButton.setText(config.getHomeScreenCloseRefuseButtonTitle());
-        closeRefuseButton.getBackground().setColorFilter(getResources().getColor(R.color.actionButtonColor), PorterDuff.Mode.MULTIPLY);
-        closeRefuseButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                // Refuse all new vendors or purposes.
-                ConsentManager.getSharedInstance().revokeAllPurposes();
-                finish();
-            }
-        });
-
-        // Setup the manage consent button
-        Button manageButton = findViewById(R.id.manage_button);
-        manageButton.setText(config.getHomeScreenManageConsentButtonTitle());
-        manageButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                // Start the ConsentToolPreferencesActivity
-                Intent intent = getIntentForConsentActivity(ConsentToolPreferencesActivity.class,
-                        getConsentStringFromIntent(),
-                        getVendorListFromIntent(),
-                        getEditorFromIntent());
-                startActivityForResult(intent, PREFERENCES_REQUEST_CODE);
-            }
-        });
-
-        */
-
-        adapter = new Adapter(ConsentManager.getSharedInstance().getConsentToolConfiguration());
+        consentString = getConsentStringFromIntent();
+        VendorList vl =  getVendorListFromIntent();
+        List<Purpose> purposes = vl == null ? Collections.<Purpose>emptyList() : vl.getPurposes();
+        adapter = new Adapter(ConsentManager.getSharedInstance().getConsentToolConfiguration(), purposes);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         recyclerView.setAdapter(adapter);
 
@@ -129,25 +90,19 @@ public class ConsentToolActivity extends ConsentActivity {
         }
     }
 
-    public void onVendorListClick(View view) {
-        // Start the VendorListActivity
-        Intent intent = getIntentForConsentActivity(VendorListActivity.class,
-                getConsentStringFromIntent(),
-                getVendorListFromIntent(),
-                getEditorFromIntent());
-        intent.putExtra(VendorListActivity.EXTRA_READONLY, true);
-        startActivityForResult(intent, VENDOR_REQUEST_CODE);
-    }
-
-    private static class Adapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
+    private class Adapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         private static final int VIEW_TYPE_HEADER = 0;
         private static final int VIEW_TYPE_PURPOSE = 1;
         private static final int VIEW_TYPE_FOOTER = 2;
-        private final ConsentToolConfiguration config;
+        private final @NonNull ConsentToolConfiguration config;
+        private final @NonNull List<Purpose> purposes;
 
-        private Adapter(ConsentToolConfiguration config) {
+        private @NonNull List<Purpose> customPurposes = new ArrayList<>();
+
+        private Adapter(ConsentToolConfiguration config, List<Purpose> purposes) {
             super();
             this.config = config;
+            this.purposes = purposes;
         }
 
         @NonNull
@@ -155,13 +110,17 @@ public class ConsentToolActivity extends ConsentActivity {
         public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
             switch (viewType) {
                 case VIEW_TYPE_HEADER:
-                    View v = LayoutInflater.from(parent.getContext())
-                          .inflate(R.layout.header_cell, parent, false);
-                    return new HeaderViewHolder(v);
+                    View headerView = LayoutInflater.from(parent.getContext())
+                          .inflate(R.layout.cmp_header_cell, parent, false);
+                    return new HeaderViewHolder(headerView);
                 case VIEW_TYPE_FOOTER:
-                    throw new RuntimeException("not implemented");
+                    View footerView = LayoutInflater.from(parent.getContext())
+                            .inflate(R.layout.cmp_footer_cell, parent, false);
+                    return new FooterViewHolder(footerView);
                 case VIEW_TYPE_PURPOSE:
-                    throw new RuntimeException("not implemented");
+                    View purposeView = LayoutInflater.from(parent.getContext())
+                            .inflate(R.layout.cmp_purpose_cell, parent, false);
+                    return new PurposeViewHolder(purposeView);
             }
             throw new AssertionError(String.format("unexpected view type {}", viewType));
         }
@@ -174,11 +133,96 @@ public class ConsentToolActivity extends ConsentActivity {
                 vh.mainLogoImageView.setImageResource(config.getHomeScreenLogoDrawableRes());
                 vh.mainTextView.setText(config.getHomeScreenText());
             }
+            if (PurposeViewHolder.class.isInstance(holder)) {
+                PurposeViewHolder vh = (PurposeViewHolder) holder;
+                final Purpose p = purposes.get(position - 1);
+                vh.titleView.setText(p.getName());
+                vh.detailView.setText(p.getDescription());
+                vh.statusSwitch.setChecked(consentString.isPurposeAllowed(p.getId()));
+                vh.statusSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+                    @Override
+                    public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                        if (isChecked) {
+                            customPurposes.add(p);
+                            consentString = ConsentString.consentStringByAddingPurposeConsent(p.getId(), consentString);
+                        } else {
+                            customPurposes.remove(p);
+                            consentString = ConsentString.consentStringByRemovingPurposeConsent(p.getId(), consentString);
+                        }
+                        int footerCell = getItemCount() - 1;
+                        notifyItemChanged(footerCell);
+                    }
+                });
+            }
+            if (FooterViewHolder.class.isInstance(holder)) {
+                FooterViewHolder vh = (FooterViewHolder) holder;
+                vh.vendorListTextView.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        Intent intent = getIntentForConsentActivity(VendorListActivity.class,
+                                consentString,
+                                getVendorListFromIntent(),
+                                getEditorFromIntent());
+                        intent.putExtra(VendorListActivity.EXTRA_READONLY, true);
+                        startActivityForResult(intent, VENDOR_REQUEST_CODE);
+                    }
+                });
+
+                vh.acceptButton.setVisibility(customPurposes.isEmpty() ? View.VISIBLE : View.GONE);
+                vh.acceptButton.setText(config.getHomeScreenCloseButtonTitle());
+                vh.acceptButton.getBackground().setColorFilter(getResources().getColor(R.color.actionButtonColor), PorterDuff.Mode.MULTIPLY);
+                vh.acceptButton.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        // Accept all new vendors or purposes.
+                        ConsentManager.getSharedInstance().allowAllPurposes();
+                        finish();
+                    }
+                });
+
+                vh.refuseButton.setVisibility(customPurposes.isEmpty() ? View.VISIBLE : View.GONE);
+                vh.refuseButton.setText(config.getHomeScreenCloseRefuseButtonTitle());
+                vh.refuseButton.getBackground().setColorFilter(getResources().getColor(R.color.actionButtonColor), PorterDuff.Mode.MULTIPLY);
+                vh.refuseButton.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        // Refuse all new vendors or purposes.
+                        ConsentManager.getSharedInstance().revokeAllPurposes();
+                        finish();
+                    }
+                });
+
+                vh.saveButton.setVisibility(customPurposes.isEmpty() ? View.GONE : View.VISIBLE);
+                vh.saveButton.setText(ConsentManager.getSharedInstance().getConsentToolConfiguration().getConsentManagementSaveButtonTitle());
+                vh.saveButton.getBackground().setColorFilter(getResources().getColor(R.color.actionButtonColor), PorterDuff.Mode.MULTIPLY);
+                vh.saveButton.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        storeConsentString(consentString);
+                        finish();
+                    }
+                });
+
+
+                vh.manageButton.setText(config.getHomeScreenManageConsentButtonTitle());
+                vh.manageButton.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        // Start the ConsentToolPreferencesActivity
+                        Intent intent = getIntentForConsentActivity(ConsentToolPreferencesActivity.class,
+                                consentString,
+                                getVendorListFromIntent(),
+                                getEditorFromIntent());
+                        startActivityForResult(intent, PREFERENCES_REQUEST_CODE);
+                    }
+                });
+
+            }
         }
 
         @Override
         public int getItemCount() {
-            return 1;
+            return purposes.size() + 2;
         }
 
         @Override
@@ -197,13 +241,64 @@ public class ConsentToolActivity extends ConsentActivity {
     }
 
     private static class HeaderViewHolder extends RecyclerView.ViewHolder {
-        private final TextView mainTextView;
-        private final ImageView mainLogoImageView;
+        private final @NonNull TextView mainTextView;
+        private final @NonNull ImageView mainLogoImageView;
 
         private HeaderViewHolder(View itemView) {
             super(itemView);
             mainLogoImageView = itemView.findViewById(R.id.fidzup_logo);
             mainTextView = itemView.findViewById(R.id.main_textview);
         }
+    }
+
+    private static class FooterViewHolder extends RecyclerView.ViewHolder {
+        private final @NonNull TextView vendorListTextView;
+        private final @NonNull Button acceptButton;
+        private final @NonNull Button refuseButton;
+        private final @NonNull Button manageButton;
+        private final @NonNull Button saveButton;
+
+        private FooterViewHolder(View itemView) {
+            super(itemView);
+            vendorListTextView = itemView.findViewById(R.id.vendorList);
+            acceptButton = itemView.findViewById(R.id.close_button);
+            refuseButton = itemView.findViewById(R.id.close_refuse_button);
+            manageButton = itemView.findViewById(R.id.manage_button);
+            saveButton = itemView.findViewById(R.id.save_button);
+        }
+    }
+
+    private static class PurposeViewHolder extends RecyclerView.ViewHolder {
+        private final @NonNull TextView titleView;
+        private final @NonNull TextView detailView;
+        private final @NonNull SwitchCompat statusSwitch;
+        private boolean expanded;
+        private PurposeViewHolder(View itemView) {
+            super(itemView);
+            expanded = false;
+            titleView = itemView.findViewById(R.id.cmp_purpose_cell_title);
+            detailView = itemView.findViewById(R.id.cmp_purpose_cell_detail);
+            statusSwitch = itemView.findViewById(R.id.cmp_purpose_switch);
+            detailView.setVisibility(View.GONE);
+            itemView.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    expand(!expanded);
+                }
+            });
+        }
+
+        void expand(boolean expand) {
+            if (expand && ! expanded) {
+                expanded = expand;
+                detailView.setVisibility(View.VISIBLE);
+            }
+            if (!expand && expanded) {
+                expanded = expand;
+                detailView.setVisibility(View.GONE);
+            }
+
+        }
+
     }
 }
