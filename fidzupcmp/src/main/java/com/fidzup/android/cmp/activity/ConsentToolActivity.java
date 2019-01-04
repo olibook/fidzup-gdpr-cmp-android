@@ -81,11 +81,17 @@ public class ConsentToolActivity extends ConsentActivity {
                         @Override
                         public void onClick(DialogInterface dialogInterface, int i) {
                             // Return the initial consent string.
-                            ConsentToolActivity.this.storeConsentString(getConsentStringFromIntent());
+                            ConsentToolActivity.this.storeConsentString(consentString);
                             ConsentToolActivity.super.onBackPressed();
                         }
                     })
-                    .setNegativeButton(config.getConsentManagementAlertDialogNegativeButtonTitle(), null)
+                    .setNegativeButton(config.getConsentManagementAlertDialogNegativeButtonTitle(), new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            ConsentManager.getSharedInstance().revokeAllPurposes();
+                            ConsentToolActivity.super.onBackPressed();
+                        }
+                    })
                     .show();
         }
     }
@@ -103,6 +109,11 @@ public class ConsentToolActivity extends ConsentActivity {
             super();
             this.config = config;
             this.purposes = purposes;
+            for (Purpose p: purposes) {
+                if (consentString.isPurposeAllowed(p.getId())) {
+                    customPurposes.add(p);
+                }
+            }
         }
 
         @NonNull
